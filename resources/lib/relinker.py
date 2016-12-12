@@ -3,6 +3,7 @@ import urllib2
 import urlparse
 
 class Relinker:
+    __USERAGENT="Mozilla/5.0 (Linux; U; Android 4.4.4; Nexus 5 Build/KTU84P) AppleWebkit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30"
     # Rai.tv android app
     # __USERAGENT = "Apache-HttpClient/UNAVAILABLE (java 1.4)"
     # Firefox 29 on Android
@@ -12,7 +13,7 @@ class Relinker:
     # Firefox 29 on Linux
     # __USERAGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:29.0) Gecko/20100101 Firefox/29.0"
     # Raiplay android app
-    __USERAGENT = "Android 4.2.2 (smart) / RaiPlay 2.0.4 / WiFi"
+    #__USERAGENT = "Android 4.2.2 (smart) / RaiPlay 2.0.4 / WiFi"
     
     def __init__(self):
         opener = urllib2.build_opener()
@@ -41,7 +42,10 @@ class Relinker:
         
         print "Relinker URL: %s" % url
         
-        response = urllib2.urlopen(url)
+        #response = urllib2.urlopen(url)
+        opener = urllib2.build_opener()
+        opener.addheaders = [('User-Agent', self.__USERAGENT)]
+        response = opener.open(url)
         mediaUrl = response.read().strip()
         
         # Workaround to normalize URL if the relinker doesn't

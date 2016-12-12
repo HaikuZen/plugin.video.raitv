@@ -9,6 +9,7 @@ import urllib
 import urlparse
 import datetime
 import StorageServer
+from resources.lib.raiplay import RaiPlay
 from resources.lib.tgr import TGR
 from resources.lib.search import Search
 from resources.lib.onair import onAir
@@ -53,6 +54,8 @@ def addLinkItem(parameters, li, url=""):
 # UI builder functions
 def show_root_menu():
     ''' Show the plugin root menu '''
+    liStyle = xbmcgui.ListItem("RaiPlay")
+    addDirectoryItem({"mode": "raiplay_tv"}, liStyle)
     liStyle = xbmcgui.ListItem("Dirette TV")
     addDirectoryItem({"mode": "live_tv"}, liStyle)
     liStyle = xbmcgui.ListItem("Dirette Radio")
@@ -132,7 +135,8 @@ def play(url, uniquename="", pathId=""):
     # Handle RAI relinker
     if url[:53] == "http://mediapolis.rai.it/relinker/relinkerServlet.htm" or \
         url[:56] == "http://mediapolisvod.rai.it/relinker/relinkerServlet.htm" or \
-        url[:58] == "http://mediapolisevent.rai.it/relinker/relinkerServlet.htm":
+        url[:58] == "http://mediapolisevent.rai.it/relinker/relinkerServlet.htm" or \
+        url[:27] == "http://smoothreplay.rai.it/" :
         xbmc.log("Relinker URL: " + url)
         relinker = Relinker()
         url = relinker.getURL(url)
@@ -238,6 +242,13 @@ def show_replay_epg(channelId, date):
                 "path_id": videoUrl}, liStyle)
     xbmcplugin.endOfDirectory(handle=handle, succeeded=True)
 
+def show_raiplay_root():
+    liStyle = xbmcgui.ListItem("Elenco programmi")
+    addDirectoryItem({"mode": "raiplay_list"}, liStyle)
+    liStyle = xbmcgui.ListItem("Cerca un programma")
+    addDirectoryItem({"mode": "raiplay_search_by_name"}, liStyle)
+    xbmcplugin.endOfDirectory(handle=handle, succeeded=True)
+    
 def show_ondemand_root():
     liStyle = xbmcgui.ListItem("Elenco programmi")
     addDirectoryItem({"mode": "ondemand_list"}, liStyle)
@@ -264,6 +275,29 @@ def show_must_watch_list():
     xbmcplugin.addSortMethod(handle, xbmcplugin.SORT_METHOD_NONE)
     xbmcplugin.endOfDirectory(handle=handle, succeeded=True)
 
+def show_raiplay_list():
+    liStyle = xbmcgui.ListItem("0-9")
+    addDirectoryItem({"mode": "raiplay_list", "index": "0-9"}, liStyle)
+    for i in range(26):
+        liStyle = xbmcgui.ListItem(chr(ord('A')+i))
+        addDirectoryItem({"mode": "raiplay_list", "index": chr(ord('A')+i)}, liStyle)
+    xbmcplugin.endOfDirectory(handle=handle, succeeded=True)   
+
+def show_raiplay_index(index):
+    raiplay = RaiPlay()
+    programmes = raiplay.searchByIndex(index)
+    show_raiplay_programmes(programmes)
+
+def search_raiplay_programmes():
+    kb = xbmc.Keyboard()
+    kb.setHeading("Cerca un programma")
+    kb.doModal()
+    if kb.isConfirmed():
+        name = kb.getText().decode('utf8')
+        raiplay = RaiPlay()
+        programmes = raiplay.searchByName(name)
+        show_raiplay_programmes(programmes)
+        
 def show_ondemand_list():
     liStyle = xbmcgui.ListItem("0-9")
     addDirectoryItem({"mode": "ondemand_list", "index": "0"}, liStyle)
@@ -319,6 +353,38 @@ def show_ondemand_new():
     programmes = ondemand.searchNewProgrammes()
     show_ondemand_programmes(programmes)
 
+def show_raiplay_programmes(programmes):
+    for programme in programmes:
+        liStyle = xbmcgui.ListItem(programme["name"])
+        addDirectoryItem({"mode": "raiplay_list",
+            "url": programme["PathID"]}, liStyle)
+    xbmcplugin.addSortMethod(handle, xbmcplugin.SORT_METHOD_LABEL)
+    xbmcplugin.endOfDirectory(handle=handle, succeeded=True)
+
+def show_raiplay_programme(url):
+    raiplay = RaiPlay()
+    xbmc.log("show_raiplay_programme "+url)
+    blocks = raiplay.getProgrammeList(url)
+    for block in blocks:
+        liStyle = xbmcgui.ListItem(block["Name"])
+        xbmc.log("show_raiplay_programme "+block["Sets"][0]["url"])
+        addDirectoryItem({"mode": "raiplay_list",
+            "urlBlock": block["Sets"][0]["url"]}, liStyle)
+    xbmcplugin.addSortMethod(handle, xbmcplugin.SORT_METHOD_LABEL)
+    xbmcplugin.endOfDirectory(handle=handle, succeeded=True)
+    
+def show_raiply_programme_list(url):
+    raiplay = RaiPlay()
+    videos = raiplay.getProgrammeBlocks(url)
+    for video in videos:
+        liStyle = xbmcgui.ListItem(video["subtitle"], thumbnailImage=raiplay.getImage(video["image"]))
+        liStyle.setProperty('IsPlayable', 'true')
+        addLinkItem({"mode": "play",
+                "url": video["url"]}, liStyle)
+    xbmcplugin.addSortMethod(handle, xbmcplugin.SORT_METHOD_LABEL)
+    xbmcplugin.endOfDirectory(handle=handle, succeeded=True)
+    
+    
 def show_ondemand_programmes(programmes):
     for programme in programmes:
         liStyle = xbmcgui.ListItem(programme["title"])
@@ -528,6 +594,7 @@ content_type = str(params.get("content_type", ""))
 mode = str(params.get("mode", ""))
 behaviour = str(params.get("behaviour", ""))
 url = str(params.get("url", ""))
+urlBlock = str(params.get("urlBlock", ""))
 title = str(params.get("title", ""))
 thumbnail = str(params.get("thumbnail", ""))
 date = str(params.get("date", ""))
@@ -538,6 +605,9 @@ pathId = str(params.get("path_id", ""))
 mediatype = str(params.get("mediatype", ""))
 tags = str(params.get("tags", ""))
 
+if mode=="raiplay_tv":
+        show_raiplay_root()
+    
 if mode == "live_tv":
     show_tv_channels()
 
@@ -563,6 +633,21 @@ elif mode == "ondemand":
         show_ondemand_items(uniquename, mediatype)
     else:
         show_ondemand_root()
+       
+elif mode == "raiplay_list":
+    if index != "":
+        show_raiplay_index(index)
+    elif url != "":
+        show_raiplay_programme(url)
+    elif urlBlock !="":
+        xbmc.log("raiplay_list urlBlock="+urlBlock)
+        show_raiply_programme_list(urlBlock)
+    else:
+        show_raiplay_list()    
+
+elif mode == "raiplay_search_by_name":
+    search_raiplay_programmes()
+    
 elif mode == "ondemand_list":
     if index != "":
         show_ondemand_index(index)
@@ -598,6 +683,7 @@ elif mode == "themes":
 
 elif mode == "get_last_content_by_tag":
      get_last_content_by_tag(tags)
+     
 elif mode == "get_most_visited":
      get_most_visited(tags)
 
